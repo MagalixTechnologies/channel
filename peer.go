@@ -46,7 +46,7 @@ func (p *peer) NextID() int {
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
-			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.protoWrite))
+			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
 				p.ch.in <- clientPacket{Packet: packetStruct{

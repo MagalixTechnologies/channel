@@ -12,9 +12,15 @@ import (
 )
 
 func main() {
+	options := channel.ChannelOptions{
+		ProtoHandshake: time.Second,
+		ProtoWrite:     time.Second,
+		ProtoRead:      2 * time.Second,
+		ProtoReconnect: time.Second,
+	}
 	switch os.Args[1] {
 	case "server":
-		s := channel.NewServer("127.0.0.1:"+os.Args[2], channel.ChannelOptions{})
+		s := channel.NewServer("127.0.0.1:"+os.Args[2], options)
 		s.AddListener("/", func(u uuid.UUID, body []byte) ([]byte, error) {
 			spew.Dump("receiving req")
 			ret := []byte(string(body) + string(body))
@@ -31,7 +37,7 @@ func main() {
 		}()
 		s.Listen()
 	case "client":
-		c := channel.NewClient("127.0.0.1:"+os.Args[2], channel.ChannelOptions{})
+		c := channel.NewClient("127.0.0.1:"+os.Args[2], options)
 		c.AddListener("/mmm", func(u uuid.UUID, body []byte) ([]byte, error) {
 			spew.Dump("receiving req", body)
 			time.Sleep(1 * time.Second)

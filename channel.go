@@ -9,10 +9,10 @@ import (
 
 // ChannelOptions options for the channel
 type ChannelOptions struct {
-	protoHandshake time.Duration
-	protoWrite     time.Duration
-	protoRead      time.Duration
-	protoReconnect time.Duration
+	ProtoHandshake time.Duration
+	ProtoWrite     time.Duration
+	ProtoRead      time.Duration
+	ProtoReconnect time.Duration
 }
 
 type packetSelector struct {
@@ -131,7 +131,7 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 		select {
 		case resp := <-receiver:
 			body, err = resp.Body, resp.Error
-		case <-time.After(ch.options.protoRead):
+		case <-time.After(ch.options.ProtoRead):
 			err = ApplyReason(Timeout, "timeout while receiving response", nil)
 
 		}
