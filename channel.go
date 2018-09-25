@@ -50,9 +50,12 @@ func (ch *Channel) isResponse(id int) bool {
 	return ch.startID%2 == id%2
 }
 
-func (ch *Channel) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) {
-	// TODO: check if exists
+func (ch *Channel) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
+	if _, ok := ch.listeners[endpoint]; ok {
+		return errors.New("listener already exists")
+	}
 	ch.listeners[endpoint] = listener
+	return nil
 }
 
 func (ch *Channel) Init() {

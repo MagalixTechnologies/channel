@@ -34,3 +34,16 @@ func (s *Server) IsConnected(client uuid.UUID) bool {
 	peer, ok := s.Channel.Peers[client]
 	return ok && peer != nil
 }
+
+func (s *Server) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
+	return s.Channel.AddListener(endpoint, listener)
+}
+
+func (s *Server) Peers() []uuid.UUID {
+	peers := s.Channel.Peers
+	res := make([]uuid.UUID, 0, len(peers))
+	for u := range peers {
+		res = append(res, u)
+	}
+	return res
+}

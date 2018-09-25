@@ -60,3 +60,7 @@ func (c *Client) IsConnected() bool {
 	peer, ok := c.Channel.Peers[c.server]
 	return ok && peer != nil
 }
+
+func (c *Client) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
+	return c.Channel.AddListener(endpoint, listener)
+}
