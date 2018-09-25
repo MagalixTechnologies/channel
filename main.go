@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/gob"
 	"errors"
 	"log"
 	"net/http"
@@ -17,10 +17,10 @@ import (
 
 var (
 	upgrader = websocket.Upgrader{}
-	mt       = websocket.TextMessage
+	mt       = websocket.BinaryMessage
 )
 
-type packetBody interface{}
+type packetBody []byte
 
 type packetStruct struct {
 	ID       int            `json:"id"`
@@ -60,17 +60,7 @@ func (p *peer) NextID() int {
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
-			message, err := json.Marshal(packet)
-			if err != nil {
-				p.ch.in <- clientPacket{Packet: packetStruct{
-					ID:       packet.ID,
-					Endpoint: packet.Endpoint,
-					Body:     nil,
-					Error:    ApplyReason(LocalError, "marshal error", err),
-				}, Client: p.ID}
-				continue
-			}
-			err = p.c.WriteMessage(mt, message)
+			w, err := p.c.NextWriter(mt)
 			if err != nil {
 				p.ch.in <- clientPacket{Packet: packetStruct{
 					ID:       packet.ID,
@@ -78,21 +68,30 @@ func (p *peer) handle() {
 					Error:    ApplyReason(LocalError, "write error", err),
 				}, Client: p.ID}
 				log.Println("write error:", err)
+				continue
 			}
+			e := gob.NewEncoder(w)
+			err = e.Encode(packet)
+			if err != nil {
+				p.ch.in <- clientPacket{Packet: packetStruct{
+					ID:       packet.ID,
+					Endpoint: packet.Endpoint,
+					Body:     nil,
+					Error:    ApplyReason(LocalError, "marshal error", err),
+				}, Client: p.ID}
+			}
+			w.Close()
 		}
 	}()
 	for {
-		_, message, err := p.c.ReadMessage()
+		_, r, err := p.c.NextReader()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err) {
-				p.close()
-				return
-			}
-			log.Println("read error:", err)
-			continue
+			p.close()
+			return
 		}
 		var packet packetStruct
-		err = json.Unmarshal(message, &packet)
+		d := gob.NewDecoder(r)
+		err = d.Decode(&packet)
 		if err != nil {
 			p.out <- packetStruct{
 				ID:       packet.ID,
@@ -170,7 +169,6 @@ func (ch *Channel) AddListener(endpoint string, listener func(uuid.UUID, packetB
 
 func (ch *Channel) Init() {
 	for req := range ch.in {
-		spew.Dump(req)
 		if ch.isResponse(req.Packet.ID) {
 			selector := packetSelector{
 				client: req.Client,
@@ -190,7 +188,7 @@ func (ch *Channel) Init() {
 						e = &tmp
 					} else if tmp, ok := err.(*ProtocolError); ok {
 						e = tmp
-					} else {
+					} else if err != nil {
 						e = ApplyReason(InternalError, "internal error", err)
 					}
 
@@ -204,9 +202,7 @@ func (ch *Channel) Init() {
 					}
 				}(req.Packet.Body)
 			} else {
-				spew.Dump("ASD")
 				if peer, ok := ch.Peers[req.Client]; ok && peer != nil {
-					spew.Dump("DEF")
 					peer.out <- packetStruct{
 						ID:       req.Packet.ID,
 						Endpoint: req.Packet.Endpoint,
@@ -233,7 +229,7 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body packetBody) (pac
 		peer.out <- packetStruct{
 			ID:       id,
 			Endpoint: endpoint,
-			Body:     &body,
+			Body:     body,
 		}
 		var body packetBody
 		var err error
@@ -241,14 +237,13 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body packetBody) (pac
 		case resp := <-receiver:
 			body, err = resp.Body, resp.Error
 			// TODO: get from config
-		case <-time.After(time.Second):
+		case <-time.After(2 * time.Second):
 			err = ApplyReason(Timeout, "timeout while receiving response", nil)
 
 		}
 		delete(ch.receivers, selector)
 		return body, err
 	}
-	spew.Dump(client, ch.Peers)
 	return nil, errors.New("client not found")
 }
 
@@ -319,15 +314,16 @@ func main() {
 	case "server":
 		s := NewServer("127.0.0.1:"+os.Args[2], ChannelOptions{})
 		s.Channel.AddListener("/", func(u uuid.UUID, body packetBody) (packetBody, error) {
-			spew.Dump(u, body)
-			ret := body.(string) + body.(string)
+			spew.Dump("receiving req")
+			ret := []byte(string(body) + string(body))
 			return ret, nil
 		})
 		go func() {
 			for {
 				time.Sleep(10 * time.Second)
-				for u, _ := range s.Channel.Peers {
-					spew.Dump(s.Send(u, "/mmm", "asd124"))
+				for u := range s.Channel.Peers {
+					spew.Dump("receiving resp")
+					spew.Dump(s.Send(u, "/mmm", []byte("asd124")))
 				}
 			}
 		}()
@@ -335,11 +331,14 @@ func main() {
 	case "client":
 		c := NewClient("127.0.0.1:"+os.Args[2], ChannelOptions{})
 		c.Channel.AddListener("/mmm", func(u uuid.UUID, body packetBody) (packetBody, error) {
+			spew.Dump("receiving req", body)
+			time.Sleep(1 * time.Second)
 			return nil, errors.New("MIE says hi")
 		})
 		go func() {
 			time.Sleep(time.Second)
-			spew.Dump(c.Send("/", "asd"))
+			spew.Dump("receiving resp")
+			spew.Dump(c.Send("/", []byte("asd")))
 		}()
 		c.Listen()
 	}
