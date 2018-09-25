@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/satori/go.uuid"
 )
 
@@ -34,6 +35,9 @@ type Channel struct {
 	listeners map[string]func(uuid.UUID, []byte) ([]byte, error)
 
 	receivers map[packetSelector]chan packetStruct
+
+	onConnect    *func(id uuid.UUID, uri string) error
+	onDisconnect *func(id uuid.UUID)
 }
 
 func newChannel(startID int, channelOptions ChannelOptions) *Channel {
@@ -139,4 +143,34 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 		return body, err
 	}
 	return nil, errors.New("client not found")
+}
+
+// SetHooks sets connection and disconnection hooks
+func (ch *Channel) SetHooks(
+	onConnect *func(id uuid.UUID, uri string) error,
+	onDisconnect *func(id uuid.UUID),
+) {
+	ch.onConnect = onConnect
+	ch.onDisconnect = onDisconnect
+}
+
+func (ch *Channel) NewPeer(c *websocket.Conn, uri string) *peer {
+	return newPeer(c, ch, uri)
+}
+
+func (ch *Channel) HandlePeer(peer *peer) {
+	ch.Peers[peer.ID] = peer
+	defer delete(ch.Peers, peer.ID)
+	if ch.onConnect != nil {
+		err := (*ch.onConnect)(peer.ID, peer.URI)
+		if err != nil {
+			return
+		}
+	}
+	defer func() {
+		if ch.onDisconnect != nil {
+			(*ch.onDisconnect)(peer.ID)
+		}
+	}()
+	peer.handle()
 }

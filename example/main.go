@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -20,7 +21,15 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "server":
-		s := channel.NewServer("127.0.0.1:"+os.Args[2], options)
+		s := channel.NewServer("127.0.0.1:"+os.Args[2], "/", options)
+		onConnect := func(u uuid.UUID, url string) error {
+			fmt.Printf("client connected %s to %s\n", u.String(), url)
+			return nil
+		}
+		onDisconnect := func(u uuid.UUID) {
+			fmt.Printf("client disconnected %s \n", u.String())
+		}
+		s.SetHooks(&onConnect, &onDisconnect)
 		s.AddListener("/", func(u uuid.UUID, body []byte) ([]byte, error) {
 			spew.Dump("receiving req")
 			ret := []byte(string(body) + string(body))
@@ -37,7 +46,12 @@ func main() {
 		}()
 		s.Listen()
 	case "client":
-		c := channel.NewClient("127.0.0.1:"+os.Args[2], options)
+		c := channel.NewClient("127.0.0.1:"+os.Args[2], "/?asd", options)
+		fn := func() error {
+			fmt.Println("server connected")
+			return nil
+		}
+		c.SetHooks(&fn, nil)
 		c.AddListener("/mmm", func(u uuid.UUID, body []byte) ([]byte, error) {
 			spew.Dump("receiving req", body)
 			time.Sleep(1 * time.Second)

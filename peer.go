@@ -3,7 +3,6 @@ package channel
 import (
 	"encoding/gob"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -22,6 +21,7 @@ type clientPacket struct {
 
 type peer struct {
 	ID  uuid.UUID
+	URI string
 	c   *websocket.Conn
 	ch  *Channel
 	out chan packetStruct
@@ -29,7 +29,7 @@ type peer struct {
 	nextID int
 }
 
-func newPeer(c *websocket.Conn, ch *Channel) *peer {
+func newPeer(c *websocket.Conn, ch *Channel, uri string) *peer {
 	u, err := uuid.NewV4()
 	if err == nil {
 		u, err = uuid.NewV1()
@@ -39,6 +39,7 @@ func newPeer(c *websocket.Conn, ch *Channel) *peer {
 	}
 	return &peer{
 		ID:     u,
+		URI:    uri,
 		c:      c,
 		ch:     ch,
 		out:    make(chan packetStruct, 10),
@@ -100,17 +101,4 @@ func (p *peer) close() {
 	close(p.out)
 	p.out = nil
 	p.c.Close()
-}
-
-func (ch *Channel) serve(w http.ResponseWriter, r *http.Request) {
-	c, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Print("upgrade:", err)
-		return
-	}
-	defer c.Close()
-	peer := newPeer(c, ch)
-	ch.Peers[peer.ID] = peer
-	defer delete(ch.Peers, peer.ID)
-	peer.handle()
 }

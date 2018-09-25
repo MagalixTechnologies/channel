@@ -9,20 +9,24 @@ import (
 
 // Server a protocol server
 type Server struct {
-	Addr    string
+	Addr string
+	Path string
+
 	Channel *Channel
 }
 
 // NewServer Creates a new Server
 // addr is the address to listen on
 // channelOptions options, see ChannelOptions docs
-func NewServer(addr string, channelOptions ChannelOptions) *Server {
+func NewServer(addr string, path string, channelOptions ChannelOptions) *Server {
 	ch := newChannel(1, channelOptions)
-	http.HandleFunc("/", ch.serve)
-	return &Server{
+	s := Server{
 		Addr:    addr,
+		Path:    path,
 		Channel: ch,
 	}
+	http.HandleFunc(s.Path, s.serve)
+	return &s
 }
 
 // Listen starts listening on connections
@@ -56,4 +60,23 @@ func (s *Server) Peers() []uuid.UUID {
 		res = append(res, u)
 	}
 	return res
+}
+
+// SetHooks sets connection and disconnection hooks
+func (s *Server) SetHooks(
+	onConnect *func(id uuid.UUID, uri string) error,
+	onDisconnect *func(id uuid.UUID),
+) {
+	s.Channel.SetHooks(onConnect, onDisconnect)
+}
+
+func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer c.Close()
+	peer := s.Channel.NewPeer(c, r.RequestURI)
+	s.Channel.HandlePeer(peer)
 }

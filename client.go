@@ -12,6 +12,7 @@ import (
 // Client a protocol client
 type Client struct {
 	Addr    string
+	Path    string
 	Channel *Channel
 
 	server uuid.UUID
@@ -20,10 +21,11 @@ type Client struct {
 // NewClient Creates a new Client
 // addr is the address to connect to
 // channelOptions options, see ChannelOptions docs
-func NewClient(addr string, channelOptions ChannelOptions) *Client {
+func NewClient(addr string, path string, channelOptions ChannelOptions) *Client {
 	ch := newChannel(0, channelOptions)
 	client := &Client{
 		Addr:    addr,
+		Path:    path,
 		Channel: ch,
 	}
 	return client
@@ -31,7 +33,7 @@ func NewClient(addr string, channelOptions ChannelOptions) *Client {
 
 // Listen starts connection loop to the server, auto connects when connection fails
 func (c *Client) Listen() {
-	u := url.URL{Scheme: "ws", Host: c.Addr, Path: "/"}
+	u := url.URL{Scheme: "ws", Host: c.Addr, Path: c.Path}
 	go c.Channel.Init()
 	for try := 0; ; try++ {
 		dialer := websocket.Dialer{
@@ -46,10 +48,10 @@ func (c *Client) Listen() {
 			continue
 		}
 		defer con.Close()
-		peer := newPeer(con, c.Channel)
-		c.Channel.Peers[peer.ID] = peer
+
+		peer := c.Channel.NewPeer(con, "")
 		c.server = peer.ID
-		c.Channel.Peers[c.server].handle()
+		c.Channel.HandlePeer(peer)
 	}
 }
 
@@ -68,4 +70,26 @@ func (c *Client) IsConnected() bool {
 // AddListener adds a listener to the channel for some endpoint
 func (c *Client) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
 	return c.Channel.AddListener(endpoint, listener)
+}
+
+// SetHooks sets connection and disconnection hooks
+func (c *Client) SetHooks(
+	onConnect *func() error,
+	onDisconnect *func(),
+) {
+	var wrapperOnConnect *func(uuid.UUID, string) error
+	var wrapperOnDisconnect *func(uuid.UUID)
+	if onConnect != nil {
+		tmp := func(_ uuid.UUID, _ string) error {
+			return (*onConnect)()
+		}
+		wrapperOnConnect = &tmp
+	}
+	if onDisconnect != nil {
+		tmp := func(_ uuid.UUID) {
+			(*onDisconnect)()
+		}
+		wrapperOnDisconnect = &tmp
+	}
+	c.Channel.SetHooks(wrapperOnConnect, wrapperOnDisconnect)
 }
