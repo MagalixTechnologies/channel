@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"log"
 	"net/http"
+	"time"
 
 	uuid "github.com/MagalixTechnologies/uuid-go"
 	"github.com/gorilla/websocket"
@@ -45,6 +46,7 @@ func (p *peer) NextID() int {
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
+			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.protoWrite))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
 				p.ch.in <- clientPacket{Packet: packetStruct{
@@ -61,7 +63,6 @@ func (p *peer) handle() {
 				p.ch.in <- clientPacket{Packet: packetStruct{
 					ID:       packet.ID,
 					Endpoint: packet.Endpoint,
-					Body:     nil,
 					Error:    ApplyReason(LocalError, "marshal error", err),
 				}, Client: p.ID}
 			}

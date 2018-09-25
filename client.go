@@ -34,11 +34,15 @@ func (c *Client) Listen() {
 	u := url.URL{Scheme: "ws", Host: c.Addr, Path: "/"}
 	go c.Channel.Init()
 	for try := 0; ; try++ {
-		con, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		dialer := websocket.Dialer{
+			HandshakeTimeout: c.Channel.options.protoHandshake,
+		}
+		con, _, err := dialer.Dial(
+			u.String(), nil,
+		)
 		if err != nil {
 			log.Printf("failed to connect: %s", err)
-			// TODO: with backoff
-			time.Sleep(time.Second)
+			time.Sleep(c.Channel.options.protoReconnect)
 			continue
 		}
 		defer con.Close()
