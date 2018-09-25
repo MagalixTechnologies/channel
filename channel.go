@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	uuid "github.com/MagalixTechnologies/uuid-go"
+	"github.com/satori/go.uuid"
 )
 
 // ChannelOptions options for the channel

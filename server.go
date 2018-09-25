@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	uuid "github.com/MagalixTechnologies/uuid-go"
+	"github.com/satori/go.uuid"
 )
 
 // Server a protocol server

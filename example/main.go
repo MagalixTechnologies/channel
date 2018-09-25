@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/satori/go.uuid"
 
 	"github.com/MagalixTechnologies/channel"
-	uuid "github.com/MagalixTechnologies/uuid-go"
 )
 
 func main() {

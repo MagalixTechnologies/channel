@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	uuid "github.com/MagalixTechnologies/uuid-go"
 	"github.com/gorilla/websocket"
+	"github.com/satori/go.uuid"
 )
 
 var (
@@ -30,8 +30,15 @@ type peer struct {
 }
 
 func newPeer(c *websocket.Conn, ch *Channel) *peer {
+	u, err := uuid.NewV4()
+	if err == nil {
+		u, err = uuid.NewV1()
+		if err != nil {
+			u = uuid.Nil
+		}
+	}
 	return &peer{
-		ID:     uuid.NewV4(),
+		ID:     u,
 		c:      c,
 		ch:     ch,
 		out:    make(chan packetStruct, 10),
