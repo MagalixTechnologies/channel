@@ -53,7 +53,7 @@ func (c *Client) Listen() {
 	}
 }
 
-// Send sends a byte array to the specified endpoint
+// Send sends a byte array on the specified endpoint
 // returns an optional response, an optional error
 func (c *Client) Send(endpoint string, body []byte) ([]byte, error) {
 	return c.Channel.Send(c.server, endpoint, body)
@@ -65,6 +65,7 @@ func (c *Client) IsConnected() bool {
 	return ok && peer != nil
 }
 
+// AddListener adds a listener to the channel for some endpoint
 func (c *Client) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
 	return c.Channel.AddListener(endpoint, listener)
 }
