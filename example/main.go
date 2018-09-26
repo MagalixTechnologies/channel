@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -46,13 +47,14 @@ func main() {
 		}()
 		s.Listen()
 	case "client":
-		c := channel.NewClient("127.0.0.1:"+os.Args[2], "/?asd", options)
+		url, _ := url.Parse("ws://127.0.0.1:" + os.Args[2] + "/?asd")
+		c := channel.NewClient(*url, options)
 		fn := func() error {
 			fmt.Println("server connected")
 			return nil
 		}
 		c.SetHooks(&fn, nil)
-		c.AddListener("/mmm", func(u uuid.UUID, body []byte) ([]byte, error) {
+		c.AddListener("/mmm", func(body []byte) ([]byte, error) {
 			spew.Dump("receiving req", body)
 			time.Sleep(1 * time.Second)
 			return nil, errors.New("MIE says hi")

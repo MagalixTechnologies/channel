@@ -11,8 +11,7 @@ import (
 
 // Client a protocol client
 type Client struct {
-	Addr    string
-	Path    string
+	URL     url.URL
 	Channel *Channel
 
 	server uuid.UUID
@@ -21,11 +20,10 @@ type Client struct {
 // NewClient Creates a new Client
 // addr is the address to connect to
 // channelOptions options, see ChannelOptions docs
-func NewClient(addr string, path string, channelOptions ChannelOptions) *Client {
+func NewClient(url url.URL, channelOptions ChannelOptions) *Client {
 	ch := newChannel(0, channelOptions)
 	client := &Client{
-		Addr:    addr,
-		Path:    path,
+		URL:     url,
 		Channel: ch,
 	}
 	return client
@@ -33,14 +31,13 @@ func NewClient(addr string, path string, channelOptions ChannelOptions) *Client 
 
 // Listen starts connection loop to the server, auto connects when connection fails
 func (c *Client) Listen() {
-	u := url.URL{Scheme: "ws", Host: c.Addr, Path: c.Path}
 	go c.Channel.Init()
 	for try := 0; ; try++ {
 		dialer := websocket.Dialer{
 			HandshakeTimeout: c.Channel.options.ProtoHandshake,
 		}
 		con, _, err := dialer.Dial(
-			u.String(), nil,
+			c.URL.String(), nil,
 		)
 		if err != nil {
 			log.Printf("failed to connect: %s", err)
