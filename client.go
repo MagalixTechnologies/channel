@@ -68,8 +68,11 @@ func (c *Client) IsConnected() bool {
 }
 
 // AddListener adds a listener to the channel for some endpoint
-func (c *Client) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
-	return c.Channel.AddListener(endpoint, listener)
+func (c *Client) AddListener(endpoint string, listener func([]byte) ([]byte, error)) error {
+	wrapper := func(_ uuid.UUID, in []byte) ([]byte, error) {
+		return listener(in)
+	}
+	return c.Channel.AddListener(endpoint, wrapper)
 }
 
 // SetHooks sets connection and disconnection hooks
