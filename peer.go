@@ -81,6 +81,7 @@ func (p *peer) handle(exit chan struct{}) {
 		_, r, err := p.c.NextReader()
 		if err != nil {
 			p.close()
+			exit <- struct{}{}
 			return
 		}
 		var packet packetStruct
@@ -95,7 +96,6 @@ func (p *peer) handle(exit chan struct{}) {
 		}
 		p.ch.in <- clientPacket{Packet: packet, Client: p.ID}
 	}
-	exit <- struct{}{}
 }
 
 func (p *peer) close() {
