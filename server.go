@@ -43,8 +43,8 @@ func (s *Server) Send(client uuid.UUID, endpoint string, body []byte) ([]byte, e
 
 // IsConnected checks if the client is connected
 func (s *Server) IsConnected(client uuid.UUID) bool {
-	peer, ok := s.Channel.Peers[client]
-	return ok && peer != nil
+	peer := s.Channel.GetPeer(client)
+	return peer != nil
 }
 
 // AddListener adds a listener to the channel for some endpoint
@@ -54,12 +54,7 @@ func (s *Server) AddListener(endpoint string, listener func(uuid.UUID, []byte) (
 
 // Peers returns a list of uuids of the connected clients
 func (s *Server) Peers() []uuid.UUID {
-	peers := s.Channel.Peers
-	res := make([]uuid.UUID, 0, len(peers))
-	for u := range peers {
-		res = append(res, u)
-	}
-	return res
+	return s.Channel.ListPeers()
 }
 
 // SetHooks sets connection and disconnection hooks

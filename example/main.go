@@ -41,6 +41,7 @@ func main() {
 				time.Sleep(10 * time.Second)
 				for _, u := range s.Peers() {
 					spew.Dump("receiving resp")
+					spew.Dump("peers", s.Peers())
 					spew.Dump(s.Send(u, "/mmm", []byte("asd124")))
 				}
 			}

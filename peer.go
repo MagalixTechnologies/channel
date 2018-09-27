@@ -51,7 +51,7 @@ func (p *peer) NextID() int {
 	p.nextID += 2
 	return p.nextID
 }
-func (p *peer) handle() {
+func (p *peer) handle(exit chan struct{}) {
 	go func() {
 		for packet := range p.out {
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
@@ -95,6 +95,7 @@ func (p *peer) handle() {
 		}
 		p.ch.in <- clientPacket{Packet: packet, Client: p.ID}
 	}
+	exit <- struct{}{}
 }
 
 func (p *peer) close() {

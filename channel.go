@@ -2,6 +2,7 @@ package channel
 
 import (
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -24,7 +25,7 @@ type packetSelector struct {
 // Channel abstracts a connection to an either a server or a client
 type Channel struct {
 	// A map of a client uuid (generated randomly everytime) and the peer
-	Peers   map[uuid.UUID]*peer
+	peers   sync.Map
 	options ChannelOptions
 
 	// odd ids for client and even ids for server
@@ -42,7 +43,7 @@ type Channel struct {
 
 func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 	ch := &Channel{
-		Peers:   make(map[uuid.UUID]*peer),
+		peers:   sync.Map{},
 		options: channelOptions,
 
 		startID: startID,
@@ -92,7 +93,7 @@ func (ch *Channel) Init() {
 						e = ApplyReason(InternalError, "internal error", err)
 					}
 
-					if peer, ok := ch.Peers[req.Client]; ok && peer != nil {
+					if peer := ch.GetPeer(req.Client); peer != nil {
 						peer.out <- packetStruct{
 							ID:       req.Packet.ID,
 							Endpoint: req.Packet.Endpoint,
@@ -102,7 +103,7 @@ func (ch *Channel) Init() {
 					}
 				}(req.Packet.Body)
 			} else {
-				if peer, ok := ch.Peers[req.Client]; ok && peer != nil {
+				if peer := ch.GetPeer(req.Client); peer != nil {
 					peer.out <- packetStruct{
 						ID:       req.Packet.ID,
 						Endpoint: req.Packet.Endpoint,
@@ -117,7 +118,7 @@ func (ch *Channel) Init() {
 
 func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte, error) {
 	// Note: skipping if the peer is not connected
-	if peer, ok := ch.Peers[client]; ok {
+	if peer := ch.GetPeer(client); peer != nil {
 		id := peer.NextID()
 		receiver := make(chan packetStruct, 1)
 		selector := packetSelector{
@@ -159,10 +160,13 @@ func (ch *Channel) NewPeer(c *websocket.Conn, uri string) *peer {
 }
 
 func (ch *Channel) HandlePeer(peer *peer) {
-	ch.Peers[peer.ID] = peer
-	defer delete(ch.Peers, peer.ID)
+	ch.peers.Store(peer.ID, peer)
+	defer ch.peers.Delete(peer.ID)
+	exit := make(chan struct{}, 1)
+	go peer.handle(exit)
 	if ch.onConnect != nil {
 		err := (*ch.onConnect)(peer.ID, peer.URI)
+		// TODO: add before, after connect
 		if err != nil {
 			return
 		}
@@ -172,5 +176,23 @@ func (ch *Channel) HandlePeer(peer *peer) {
 			(*ch.onDisconnect)(peer.ID)
 		}
 	}()
-	peer.handle()
+	<-exit
+}
+
+func (ch *Channel) GetPeer(id uuid.UUID) *peer {
+	if peerInterface, ok := ch.peers.Load(id); ok {
+		if peer, ok := peerInterface.(*peer); ok {
+			return peer
+		}
+	}
+	return nil
+}
+
+func (ch *Channel) ListPeers() []uuid.UUID {
+	res := make([]uuid.UUID, 0)
+	ch.peers.Range(func(u interface{}, _ interface{}) bool {
+		res = append(res, u.(uuid.UUID))
+		return true
+	})
+	return res
 }

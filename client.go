@@ -60,8 +60,8 @@ func (c *Client) Send(endpoint string, body []byte) ([]byte, error) {
 
 // IsConnected checks if a connection to the server is established
 func (c *Client) IsConnected() bool {
-	peer, ok := c.Channel.Peers[c.server]
-	return ok && peer != nil
+	peer := c.Channel.GetPeer(c.server)
+	return peer != nil
 }
 
 // AddListener adds a listener to the channel for some endpoint
