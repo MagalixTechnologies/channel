@@ -20,11 +20,12 @@ type clientPacket struct {
 }
 
 type peer struct {
-	ID  uuid.UUID
-	URI string
-	c   *websocket.Conn
-	ch  *Channel
-	out chan packetStruct
+	ID   uuid.UUID
+	URI  string
+	Exit chan struct{}
+	c    *websocket.Conn
+	ch   *Channel
+	out  chan packetStruct
 
 	nextID int
 }
@@ -40,6 +41,7 @@ func newPeer(c *websocket.Conn, ch *Channel, uri string) *peer {
 	return &peer{
 		ID:     u,
 		URI:    uri,
+		Exit:   make(chan struct{}, 1),
 		c:      c,
 		ch:     ch,
 		out:    make(chan packetStruct, 10),
@@ -51,7 +53,7 @@ func (p *peer) NextID() int {
 	p.nextID += 2
 	return p.nextID
 }
-func (p *peer) handle(exit chan struct{}) {
+func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
@@ -81,7 +83,6 @@ func (p *peer) handle(exit chan struct{}) {
 		_, r, err := p.c.NextReader()
 		if err != nil {
 			p.close()
-			exit <- struct{}{}
 			return
 		}
 		var packet packetStruct
@@ -101,5 +102,6 @@ func (p *peer) handle(exit chan struct{}) {
 func (p *peer) close() {
 	close(p.out)
 	p.out = nil
+	p.Exit <- struct{}{}
 	p.c.Close()
 }

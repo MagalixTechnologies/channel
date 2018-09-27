@@ -2,6 +2,7 @@ package channel
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -162,13 +163,12 @@ func (ch *Channel) NewPeer(c *websocket.Conn, uri string) *peer {
 func (ch *Channel) HandlePeer(peer *peer) {
 	ch.peers.Store(peer.ID, peer)
 	defer ch.peers.Delete(peer.ID)
-	exit := make(chan struct{}, 1)
-	go peer.handle(exit)
+	go peer.handle()
 	if ch.onConnect != nil {
 		err := (*ch.onConnect)(peer.ID, peer.URI)
 		// TODO: add before, after connect
 		if err != nil {
-			return
+			fmt.Println(err)
 		}
 	}
 	defer func() {
@@ -176,7 +176,7 @@ func (ch *Channel) HandlePeer(peer *peer) {
 			(*ch.onDisconnect)(peer.ID)
 		}
 	}()
-	<-exit
+	<-peer.Exit
 }
 
 func (ch *Channel) GetPeer(id uuid.UUID) *peer {

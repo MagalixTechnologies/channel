@@ -49,6 +49,7 @@ func (c *Client) Listen() {
 		peer := c.Channel.NewPeer(con, "")
 		c.server = peer.ID
 		c.Channel.HandlePeer(peer)
+		time.Sleep(c.Channel.options.ProtoReconnect)
 	}
 }
 
