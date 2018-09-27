@@ -137,6 +137,10 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 		select {
 		case resp := <-receiver:
 			body, err = resp.Body, resp.Error
+			// to make sure that nil is untyped
+			if resp.Error == nil {
+				err = nil
+			}
 		case <-time.After(ch.options.ProtoRead):
 			err = ApplyReason(Timeout, "timeout while receiving response", nil)
 
