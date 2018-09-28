@@ -78,7 +78,6 @@ func (ch *Channel) Init() {
 			}
 			if receiver, ok := ch.receivers[selector]; ok {
 				receiver <- req.Packet
-				close(receiver)
 			}
 		} else {
 			if listener, ok := ch.listeners[req.Packet.Endpoint]; ok {
