@@ -3,6 +3,7 @@ package channel
 import (
 	"encoding/gob"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -28,6 +29,8 @@ type peer struct {
 	out  chan packetStruct
 
 	nextID int
+
+	m sync.Mutex
 }
 
 func newPeer(c *websocket.Conn, ch *Channel, uri string) *peer {
@@ -46,10 +49,13 @@ func newPeer(c *websocket.Conn, ch *Channel, uri string) *peer {
 		ch:     ch,
 		out:    make(chan packetStruct, 10),
 		nextID: ch.startID,
+		m:      sync.Mutex{},
 	}
 }
 
 func (p *peer) NextID() int {
+	p.m.Lock()
+	defer p.m.Unlock()
 	p.nextID += 2
 	return p.nextID
 }
