@@ -36,7 +36,7 @@ type Channel struct {
 
 	listeners map[string]func(uuid.UUID, []byte) ([]byte, error)
 
-	receivers map[packetSelector]chan packetStruct
+	receivers sync.Map
 
 	onConnect    *func(id uuid.UUID, uri string) error
 	onDisconnect *func(id uuid.UUID)
@@ -52,7 +52,8 @@ func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 		in: make(chan clientPacket),
 
 		listeners: make(map[string]func(uuid.UUID, []byte) ([]byte, error)),
-		receivers: make(map[packetSelector]chan packetStruct),
+
+		receivers: sync.Map{},
 	}
 	return ch
 }
@@ -76,8 +77,8 @@ func (ch *Channel) Init() {
 				client: req.Client,
 				id:     req.Packet.ID,
 			}
-			if receiver, ok := ch.receivers[selector]; ok {
-				receiver <- req.Packet
+			if receiver, ok := ch.receivers.Load(selector); ok {
+				receiver.(chan packetStruct) <- req.Packet
 			}
 		} else {
 			if listener, ok := ch.listeners[req.Packet.Endpoint]; ok {
@@ -125,7 +126,7 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 			client: client,
 			id:     id,
 		}
-		ch.receivers[selector] = receiver
+		ch.receivers.Store(selector, receiver)
 		peer.out <- packetStruct{
 			ID:       id,
 			Endpoint: endpoint,
@@ -144,7 +145,7 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 			err = ApplyReason(Timeout, fmt.Sprintf("timeout while receiving response with id: %d", id), nil)
 
 		}
-		delete(ch.receivers, selector)
+		ch.receivers.Delete(selector)
 		return body, err
 	}
 	return nil, errors.New("client not found")
