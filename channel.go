@@ -82,8 +82,8 @@ func (ch *Channel) Init() {
 			}
 		} else {
 			if listener, ok := ch.listeners[req.Packet.Endpoint]; ok {
-				go func(body []byte) {
-					resp, err := listener(req.Client, body)
+				go func(client uuid.UUID, id int, endpoint string, body []byte) {
+					resp, err := listener(client, body)
 					var e *ProtocolError
 
 					if tmp, ok := err.(ProtocolError); ok {
@@ -94,15 +94,15 @@ func (ch *Channel) Init() {
 						e = ApplyReason(InternalError, "internal error", err)
 					}
 
-					if peer := ch.GetPeer(req.Client); peer != nil {
+					if peer := ch.GetPeer(client); peer != nil {
 						peer.out <- packetStruct{
-							ID:       req.Packet.ID,
-							Endpoint: req.Packet.Endpoint,
+							ID:       id,
+							Endpoint: endpoint,
 							Body:     resp,
 							Error:    e,
 						}
 					}
-				}(req.Packet.Body)
+				}(req.Client, req.Packet.ID, req.Packet.Endpoint, req.Packet.Body)
 			} else {
 				if peer := ch.GetPeer(req.Client); peer != nil {
 					peer.out <- packetStruct{
