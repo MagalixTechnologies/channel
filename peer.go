@@ -62,7 +62,6 @@ func (p *peer) NextID() int {
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
-			log.Printf("writing packet with id %d.\n", packet.ID)
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
@@ -84,7 +83,6 @@ func (p *peer) handle() {
 				}, Client: p.ID}
 			}
 			w.Close()
-			log.Printf("written packet with id %d.\n", packet.ID)
 		}
 	}()
 	for {
@@ -103,9 +101,7 @@ func (p *peer) handle() {
 				Error:    ApplyReason(BadRequest, "bad request", err),
 			}
 		}
-		log.Printf("reading packet with id %d.\n", packet.ID)
 		p.ch.in <- clientPacket{Packet: packet, Client: p.ID}
-		log.Printf("read packet with id %d.\n", packet.ID)
 	}
 }
 
