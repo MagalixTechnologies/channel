@@ -65,6 +65,8 @@ func (c *Client) IsConnected() bool {
 	return peer != nil
 }
 
+// TODO: implement AddMiddleware
+
 // AddListener adds a listener to the channel for some endpoint
 func (c *Client) AddListener(endpoint string, listener func([]byte) ([]byte, error)) error {
 	wrapper := func(_ uuid.UUID, in []byte) ([]byte, error) {

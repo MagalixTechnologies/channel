@@ -34,7 +34,8 @@ type Channel struct {
 
 	in chan clientPacket
 
-	listeners map[string]func(uuid.UUID, []byte) ([]byte, error)
+	listeners   map[string]func(uuid.UUID, []byte) ([]byte, error)
+	middlewares []func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)
 
 	receivers sync.Map
 
@@ -51,7 +52,8 @@ func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 
 		in: make(chan clientPacket),
 
-		listeners: make(map[string]func(uuid.UUID, []byte) ([]byte, error)),
+		listeners:   make(map[string]func(uuid.UUID, []byte) ([]byte, error)),
+		middlewares: make([]func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error), 0),
 
 		receivers: sync.Map{},
 	}
@@ -60,6 +62,10 @@ func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 
 func (ch *Channel) isResponse(id int) bool {
 	return ch.startID%2 == id%2
+}
+
+func (ch *Channel) AddMiddleware(middleware func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
+	ch.middlewares = append(ch.middlewares, middleware)
 }
 
 func (ch *Channel) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
@@ -82,8 +88,17 @@ func (ch *Channel) Init() {
 			}
 		} else {
 			if listener, ok := ch.listeners[req.Packet.Endpoint]; ok {
+				var last = listener
+				for _, middleware := range ch.middlewares {
+					wrapper := func(last func(u uuid.UUID, b []byte) ([]byte, error)) func(u uuid.UUID, b []byte) ([]byte, error) {
+						return func(u uuid.UUID, b []byte) ([]byte, error) {
+							return middleware(u, b, last)
+						}
+					}(last)
+					last = wrapper
+				}
 				go func(client uuid.UUID, id int, endpoint string, body []byte) {
-					resp, err := listener(client, body)
+					resp, err := last(client, body)
 					var e *ProtocolError
 
 					if tmp, ok := err.(ProtocolError); ok {
@@ -108,7 +123,7 @@ func (ch *Channel) Init() {
 					peer.out <- packetStruct{
 						ID:       req.Packet.ID,
 						Endpoint: req.Packet.Endpoint,
-						Error:    ApplyReason(NotFound, "api not found", nil),
+						Error:    ApplyReason(NotFound, fmt.Sprintf("api not found: %s", req.Packet.Endpoint), nil),
 					}
 				}
 			}
