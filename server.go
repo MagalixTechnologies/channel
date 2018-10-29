@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -48,11 +49,13 @@ func (s *Server) IsConnected(client uuid.UUID) bool {
 }
 
 // AddListener adds a listener to the channel for some endpoint
-func (s *Server) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
+func (s *Server) AddListener(endpoint string, listener func(context.Context, uuid.UUID, []byte) ([]byte, error)) error {
 	return s.Channel.AddListener(endpoint, listener)
 }
 
-func (ch *Server) AddMiddleware(middleware func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
+func (ch *Server) AddMiddleware(
+	middleware func(context.Context, string, uuid.UUID, []byte, func(context.Context, uuid.UUID, []byte) ([]byte, error)) ([]byte, error),
+) {
 	ch.Channel.AddMiddleware(middleware)
 }
 

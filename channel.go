@@ -1,6 +1,7 @@
 package channel
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -34,8 +35,8 @@ type Channel struct {
 
 	in chan clientPacket
 
-	listeners   map[string]func(uuid.UUID, []byte) ([]byte, error)
-	middlewares []func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)
+	listeners   map[string]func(context.Context, uuid.UUID, []byte) ([]byte, error)
+	middlewares []func(context.Context, string, uuid.UUID, []byte, func(context.Context, uuid.UUID, []byte) ([]byte, error)) ([]byte, error)
 
 	receivers sync.Map
 
@@ -52,8 +53,8 @@ func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 
 		in: make(chan clientPacket),
 
-		listeners:   make(map[string]func(uuid.UUID, []byte) ([]byte, error)),
-		middlewares: make([]func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error), 0),
+		listeners:   make(map[string]func(context.Context, uuid.UUID, []byte) ([]byte, error)),
+		middlewares: make([]func(context.Context, string, uuid.UUID, []byte, func(context.Context, uuid.UUID, []byte) ([]byte, error)) ([]byte, error), 0),
 
 		receivers: sync.Map{},
 	}
@@ -64,11 +65,11 @@ func (ch *Channel) isResponse(id int) bool {
 	return ch.startID%2 == id%2
 }
 
-func (ch *Channel) AddMiddleware(middleware func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
+func (ch *Channel) AddMiddleware(middleware func(context.Context, string, uuid.UUID, []byte, func(context.Context, uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
 	ch.middlewares = append(ch.middlewares, middleware)
 }
 
-func (ch *Channel) AddListener(endpoint string, listener func(uuid.UUID, []byte) ([]byte, error)) error {
+func (ch *Channel) AddListener(endpoint string, listener func(context.Context, uuid.UUID, []byte) ([]byte, error)) error {
 	if _, ok := ch.listeners[endpoint]; ok {
 		return errors.New("listener already exists")
 	}
@@ -88,17 +89,17 @@ func (ch *Channel) Init() {
 			}
 		} else {
 			if listener, ok := ch.listeners[req.Packet.Endpoint]; ok {
-				var last = listener
+				last := listener
 				for _, middleware := range ch.middlewares {
-					wrapper := func(endpoint string, last func(u uuid.UUID, b []byte) ([]byte, error)) func(u uuid.UUID, b []byte) ([]byte, error) {
-						return func(u uuid.UUID, b []byte) ([]byte, error) {
-							return middleware(endpoint, u, b, last)
+					wrapper := func(endpoint string, last func(c context.Context, u uuid.UUID, b []byte) ([]byte, error)) func(context.Context, uuid.UUID, []byte) ([]byte, error) {
+						return func(c context.Context, u uuid.UUID, b []byte) ([]byte, error) {
+							return middleware(c, endpoint, u, b, last)
 						}
 					}(req.Packet.Endpoint, last)
 					last = wrapper
 				}
 				go func(client uuid.UUID, id int, endpoint string, body []byte) {
-					resp, err := last(client, body)
+					resp, err := last(context.TODO(), client, body)
 					var e *ProtocolError
 
 					if tmp, ok := err.(ProtocolError); ok {
