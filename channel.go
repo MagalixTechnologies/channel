@@ -35,7 +35,7 @@ type Channel struct {
 	in chan clientPacket
 
 	listeners   map[string]func(uuid.UUID, []byte) ([]byte, error)
-	middlewares []func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)
+	middlewares []func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)
 
 	receivers sync.Map
 
@@ -53,7 +53,7 @@ func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 		in: make(chan clientPacket),
 
 		listeners:   make(map[string]func(uuid.UUID, []byte) ([]byte, error)),
-		middlewares: make([]func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error), 0),
+		middlewares: make([]func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error), 0),
 
 		receivers: sync.Map{},
 	}
@@ -64,7 +64,7 @@ func (ch *Channel) isResponse(id int) bool {
 	return ch.startID%2 == id%2
 }
 
-func (ch *Channel) AddMiddleware(middleware func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
+func (ch *Channel) AddMiddleware(middleware func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
 	ch.middlewares = append(ch.middlewares, middleware)
 }
 
@@ -90,11 +90,11 @@ func (ch *Channel) Init() {
 			if listener, ok := ch.listeners[req.Packet.Endpoint]; ok {
 				var last = listener
 				for _, middleware := range ch.middlewares {
-					wrapper := func(last func(u uuid.UUID, b []byte) ([]byte, error)) func(u uuid.UUID, b []byte) ([]byte, error) {
+					wrapper := func(endpoint string, last func(u uuid.UUID, b []byte) ([]byte, error)) func(u uuid.UUID, b []byte) ([]byte, error) {
 						return func(u uuid.UUID, b []byte) ([]byte, error) {
-							return middleware(u, b, last)
+							return middleware(endpoint, u, b, last)
 						}
-					}(last)
+					}(req.Packet.Endpoint, last)
 					last = wrapper
 				}
 				go func(client uuid.UUID, id int, endpoint string, body []byte) {

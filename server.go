@@ -52,7 +52,7 @@ func (s *Server) AddListener(endpoint string, listener func(uuid.UUID, []byte) (
 	return s.Channel.AddListener(endpoint, listener)
 }
 
-func (ch *Server) AddMiddleware(middleware func(uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
+func (ch *Server) AddMiddleware(middleware func(string, uuid.UUID, []byte, func(uuid.UUID, []byte) ([]byte, error)) ([]byte, error)) {
 	ch.Channel.AddMiddleware(middleware)
 }
 
