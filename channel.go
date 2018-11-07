@@ -158,7 +158,7 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 				err = nil
 			}
 		case <-time.After(ch.options.ProtoRead):
-			err = ApplyReason(Timeout, fmt.Sprintf("timeout while receiving response with id: %d", id), nil)
+			err = ApplyReason(Timeout, fmt.Sprintf("timeout while receiving response with endpont: %s, id: %d", endpoint, id), nil)
 
 		}
 		ch.receivers.Delete(selector)
