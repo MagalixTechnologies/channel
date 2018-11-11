@@ -34,24 +34,28 @@ func NewClient(url url.URL, channelOptions ChannelOptions) *Client {
 func (c *Client) Listen() {
 	go c.Channel.Init()
 	for try := 0; ; try++ {
-		dialer := websocket.Dialer{
-			HandshakeTimeout: c.Channel.options.ProtoHandshake,
-		}
-		con, _, err := dialer.Dial(
-			c.URL.String(), nil,
-		)
-		if err != nil {
-			log.Printf("failed to connect: %s", err)
-			time.Sleep(c.Channel.options.ProtoReconnect)
-			continue
-		}
-		defer con.Close()
-
-		peer := c.Channel.NewPeer(con, "")
-		c.server = peer.ID
-		c.Channel.HandlePeer(peer)
-		time.Sleep(c.Channel.options.ProtoReconnect)
+		c.listenOnce()
 	}
+}
+
+func (c *Client) listenOnce() {
+	dialer := websocket.Dialer{
+		HandshakeTimeout: c.Channel.options.ProtoHandshake,
+	}
+	con, _, err := dialer.Dial(
+		c.URL.String(), nil,
+	)
+	if err != nil {
+		log.Printf("failed to connect: %s", err)
+		time.Sleep(c.Channel.options.ProtoReconnect)
+		return
+	}
+	defer con.Close()
+
+	peer := c.Channel.NewPeer(con, "")
+	c.server = peer.ID
+	c.Channel.HandlePeer(peer)
+	time.Sleep(c.Channel.options.ProtoReconnect)
 }
 
 // Send sends a byte array on the specified endpoint
