@@ -2,6 +2,7 @@ package channel
 
 import (
 	"encoding/gob"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -62,6 +63,10 @@ func (p *peer) NextID() int {
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
+			// TODO: remove
+			if len(p.out) > 8 {
+				fmt.Println("TODO: remove, out channel is almost full, this might be the reason causing the timeout issue")
+			}
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
