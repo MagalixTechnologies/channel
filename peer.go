@@ -48,7 +48,7 @@ func newPeer(c *websocket.Conn, ch *Channel, uri string) *peer {
 		Exit:   make(chan struct{}, 1),
 		c:      c,
 		ch:     ch,
-		out:    make(chan packetStruct, 10),
+		out:    make(chan packetStruct, 1024),
 		nextID: ch.startID,
 		m:      sync.Mutex{},
 	}
@@ -64,7 +64,7 @@ func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
 			// TODO: remove
-			if len(p.out) > 8 {
+			if len(p.out) > 1020 {
 				fmt.Println("TODO: remove, out channel is almost full, this might be the reason causing the timeout issue")
 			}
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
