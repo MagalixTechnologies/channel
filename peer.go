@@ -70,16 +70,16 @@ func (p *peer) handle() {
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
-				p.ch.in <- clientPacket{Packet: packetStruct{
-					ID:       packet.ID,
-					Endpoint: packet.Endpoint,
-					Error:    ApplyReason(LocalError, "write error", err),
-				}, Client: p.ID}
+				if !p.ch.isResponse(packet.ID) {
+					p.ch.in <- clientPacket{Packet: packetStruct{
+						ID:       packet.ID,
+						Endpoint: packet.Endpoint,
+						Error:    ApplyReason(LocalError, "write error", err),
+					}, Client: p.ID}
+				}
 				log.Println("write error:", err)
 				continue
 			}
-			// TODO: remove
-			fmt.Printf("writing response for with %d", packet.ID)
 			e := gob.NewEncoder(w)
 			err = e.Encode(packet)
 			if err != nil {
@@ -108,8 +108,6 @@ func (p *peer) handle() {
 				Error:    ApplyReason(BadRequest, "bad request", err),
 			}
 		}
-		// TODO: remove
-		fmt.Printf("reading response with id %d", packet.ID)
 		p.ch.in <- clientPacket{Packet: packet, Client: p.ID}
 	}
 }
