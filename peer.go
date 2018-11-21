@@ -78,6 +78,8 @@ func (p *peer) handle() {
 				log.Println("write error:", err)
 				continue
 			}
+			// TODO: remove
+			fmt.Printf("writing response for with %d", packet.ID)
 			e := gob.NewEncoder(w)
 			err = e.Encode(packet)
 			if err != nil {
@@ -106,6 +108,8 @@ func (p *peer) handle() {
 				Error:    ApplyReason(BadRequest, "bad request", err),
 			}
 		}
+		// TODO: remove
+		fmt.Printf("reading response with id %d", packet.ID)
 		p.ch.in <- clientPacket{Packet: packet, Client: p.ID}
 	}
 }
