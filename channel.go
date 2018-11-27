@@ -61,7 +61,7 @@ func newChannel(startID int, channelOptions ChannelOptions) *Channel {
 	return ch
 }
 
-func (ch *Channel) isResponse(id int) bool {
+func (ch *Channel) startedHere(id int) bool {
 	return ch.startID%2 == id%2
 }
 
@@ -79,7 +79,7 @@ func (ch *Channel) AddListener(endpoint string, listener func(context.Context, u
 
 func (ch *Channel) Init() {
 	for req := range ch.in {
-		if ch.isResponse(req.Packet.ID) {
+		if ch.startedHere(req.Packet.ID) {
 			selector := packetSelector{
 				client: req.Client,
 				id:     req.Packet.ID,

@@ -70,7 +70,7 @@ func (p *peer) handle() {
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
-				if !p.ch.isResponse(packet.ID) {
+				if p.ch.startedHere(packet.ID) {
 					p.ch.in <- clientPacket{Packet: packetStruct{
 						ID:       packet.ID,
 						Endpoint: packet.Endpoint,
