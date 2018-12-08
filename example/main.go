@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -31,7 +32,7 @@ func main() {
 			fmt.Printf("client disconnected %s \n", u.String())
 		}
 		s.SetHooks(&onConnect, &onDisconnect)
-		s.AddListener("/", func(u uuid.UUID, body []byte) ([]byte, error) {
+		s.AddListener("/", func(c context.Context, u uuid.UUID, body []byte) ([]byte, error) {
 			spew.Dump("receiving req")
 			ret := []byte(string(body) + string(body))
 			return ret, nil
