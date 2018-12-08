@@ -5,7 +5,12 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/satori/go.uuid"
+)
+
+var (
+	upgrader = websocket.Upgrader{}
 )
 
 // Server a protocol server

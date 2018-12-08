@@ -3,6 +3,7 @@ package channel
 import (
 	"encoding/gob"
 	"fmt"
+	"io"
 	"log"
 	"sync"
 	"time"
@@ -12,8 +13,7 @@ import (
 )
 
 var (
-	upgrader = websocket.Upgrader{}
-	mt       = websocket.BinaryMessage
+	mt = websocket.BinaryMessage
 )
 
 type clientPacket struct {
@@ -21,11 +21,18 @@ type clientPacket struct {
 	Packet packetStruct
 }
 
+type Conn interface {
+	SetWriteDeadline(time.Time) error
+	NextWriter(int) (io.WriteCloser, error)
+	NextReader() (messageType int, r io.Reader, err error)
+	Close() error
+}
+
 type peer struct {
 	ID   uuid.UUID
 	URI  string
 	Exit chan struct{}
-	c    *websocket.Conn
+	c    Conn
 	ch   *Channel
 	out  chan packetStruct
 
@@ -34,7 +41,7 @@ type peer struct {
 	m sync.Mutex
 }
 
-func newPeer(c *websocket.Conn, ch *Channel, uri string) *peer {
+func newPeer(c Conn, ch *Channel, uri string) *peer {
 	u, err := uuid.NewV4()
 	if err == nil {
 		u, err = uuid.NewV1()
