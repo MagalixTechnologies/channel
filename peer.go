@@ -21,6 +21,10 @@ type clientPacket struct {
 	Packet packetStruct
 }
 
+type Receiver interface {
+	received(clientPacket)
+}
+
 type Conn interface {
 	SetWriteDeadline(time.Time) error
 	NextWriter(int) (io.WriteCloser, error)
@@ -28,20 +32,26 @@ type Conn interface {
 	Close() error
 }
 
+type peerOptions struct {
+	startID      int
+	writeTimeout time.Duration
+}
+
 type peer struct {
 	ID   uuid.UUID
 	URI  string
 	Exit chan struct{}
 	c    Conn
-	ch   *Channel
+	ch   Receiver
 	out  chan packetStruct
 
-	nextID int
+	nextID  int
+	options peerOptions
 
 	m sync.Mutex
 }
 
-func newPeer(c Conn, ch *Channel, uri string) *peer {
+func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
 	u, err := uuid.NewV4()
 	if err == nil {
 		u, err = uuid.NewV1()
@@ -50,14 +60,15 @@ func newPeer(c Conn, ch *Channel, uri string) *peer {
 		}
 	}
 	return &peer{
-		ID:     u,
-		URI:    uri,
-		Exit:   make(chan struct{}, 1),
-		c:      c,
-		ch:     ch,
-		out:    make(chan packetStruct, 1024),
-		nextID: ch.startID,
-		m:      sync.Mutex{},
+		ID:      u,
+		URI:     uri,
+		Exit:    make(chan struct{}, 1),
+		c:       c,
+		ch:      ch,
+		out:     make(chan packetStruct, 1024),
+		nextID:  options.startID,
+		options: options,
+		m:       sync.Mutex{},
 	}
 }
 
@@ -67,21 +78,26 @@ func (p *peer) NextID() int {
 	p.nextID += 2
 	return p.nextID
 }
+
+func (p *peer) startedHere(id int) bool {
+	return p.nextID%2 == id%2
+}
+
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
 			if len(p.out) > cap(p.out)-2 {
 				fmt.Println("out channel is almost full, this might cause timeout issues")
 			}
-			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
+			p.c.SetWriteDeadline(time.Now().Add(p.options.writeTimeout))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
-				if p.ch.startedHere(packet.ID) {
-					p.ch.in <- clientPacket{Packet: packetStruct{
+				if p.startedHere(packet.ID) {
+					p.ch.received(clientPacket{Packet: packetStruct{
 						ID:       packet.ID,
 						Endpoint: packet.Endpoint,
 						Error:    ApplyReason(LocalError, "write error", err),
-					}, Client: p.ID}
+					}, Client: p.ID})
 				}
 				log.Println("write error:", err)
 				continue
@@ -89,11 +105,11 @@ func (p *peer) handle() {
 			e := gob.NewEncoder(w)
 			err = e.Encode(packet)
 			if err != nil {
-				p.ch.in <- clientPacket{Packet: packetStruct{
+				p.ch.received(clientPacket{Packet: packetStruct{
 					ID:       packet.ID,
 					Endpoint: packet.Endpoint,
 					Error:    ApplyReason(LocalError, "marshal error", err),
-				}, Client: p.ID}
+				}, Client: p.ID})
 			}
 			w.Close()
 		}
@@ -114,7 +130,7 @@ func (p *peer) handle() {
 				Error:    ApplyReason(BadRequest, "bad request", err),
 			}
 		}
-		p.ch.in <- clientPacket{Packet: packet, Client: p.ID}
+		p.ch.received(clientPacket{Packet: packet, Client: p.ID})
 	}
 }
 

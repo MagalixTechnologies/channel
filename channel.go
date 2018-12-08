@@ -167,6 +167,10 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 	return nil, errors.New("client not found")
 }
 
+func (ch *Channel) received(packet clientPacket) {
+	ch.in <- packet
+}
+
 // SetHooks sets connection and disconnection hooks
 func (ch *Channel) SetHooks(
 	onConnect *func(id uuid.UUID, uri string) error,
@@ -177,7 +181,10 @@ func (ch *Channel) SetHooks(
 }
 
 func (ch *Channel) NewPeer(c *websocket.Conn, uri string) *peer {
-	return newPeer(c, ch, uri)
+	return newPeer(c, ch, peerOptions{
+		startID:      ch.startID,
+		writeTimeout: ch.options.ProtoWrite,
+	}, uri)
 }
 
 func (ch *Channel) HandlePeer(peer *peer) {
