@@ -70,9 +70,8 @@ func (p *peer) NextID() int {
 func (p *peer) handle() {
 	go func() {
 		for packet := range p.out {
-			// TODO: remove
-			if len(p.out) > 1020 {
-				fmt.Println("TODO: remove, out channel is almost full, this might be the reason causing the timeout issue")
+			if len(p.out) > cap(p.out)-2 {
+				fmt.Println("out channel is almost full, this might cause timeout issues")
 			}
 			p.c.SetWriteDeadline(time.Now().Add(p.ch.options.ProtoWrite))
 			w, err := p.c.NextWriter(mt)
