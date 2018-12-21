@@ -12,6 +12,10 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+const (
+	outChannelSize = 2048
+)
+
 var (
 	mt = websocket.BinaryMessage
 )
@@ -65,7 +69,7 @@ func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
 		Exit:    make(chan struct{}, 1),
 		c:       c,
 		ch:      ch,
-		out:     make(chan packetStruct, 1024),
+		out:     make(chan packetStruct, outChannelSize),
 		nextID:  options.startID,
 		options: options,
 		m:       sync.Mutex{},
