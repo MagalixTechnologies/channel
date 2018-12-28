@@ -2,6 +2,7 @@ package channel
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -80,7 +81,8 @@ func (s *Server) SetHooks(
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		msg := fmt.Sprintf("%s requested %s %s", r.RemoteAddr, r.Method, r.URL.String())
+		log.Print("upgrade: ", err, msg)
 		return
 	}
 	defer c.Close()
