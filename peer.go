@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -96,24 +95,19 @@ func (p *peer) handle() {
 			p.c.SetWriteDeadline(time.Now().Add(p.options.writeTimeout))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
-				if p.startedHere(packet.ID) {
-					p.ch.received(clientPacket{Packet: packetStruct{
-						ID:       packet.ID,
-						Endpoint: packet.Endpoint,
-						Error:    ApplyReason(LocalError, "write error", err),
-					}, Client: p.ID})
-				}
-				log.Println("write error:", err)
-				continue
+				p.close()
+				return
 			}
 			e := gob.NewEncoder(w)
 			err = e.Encode(packet)
 			if err != nil {
-				p.ch.received(clientPacket{Packet: packetStruct{
-					ID:       packet.ID,
-					Endpoint: packet.Endpoint,
-					Error:    ApplyReason(LocalError, "marshal error", err),
-				}, Client: p.ID})
+				if p.startedHere(packet.ID) {
+					p.ch.received(clientPacket{Packet: packetStruct{
+						ID:       packet.ID,
+						Endpoint: packet.Endpoint,
+						Error:    ApplyReason(LocalError, "marshal error", err),
+					}, Client: p.ID})
+				}
 			}
 			w.Close()
 		}
