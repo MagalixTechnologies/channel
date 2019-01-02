@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+	"net"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ type Conn interface {
 	SetWriteDeadline(time.Time) error
 	NextWriter(int) (io.WriteCloser, error)
 	NextReader() (messageType int, r io.Reader, err error)
+	RemoteAddr() net.Addr
 	Close() error
 }
 
@@ -41,12 +43,13 @@ type peerOptions struct {
 }
 
 type peer struct {
-	ID   uuid.UUID
-	URI  string
-	Exit chan struct{}
-	c    Conn
-	ch   Receiver
-	out  chan packetStruct
+	ID         uuid.UUID
+	URI        string
+	RemoteAddr string
+	Exit       chan struct{}
+	c          Conn
+	ch         Receiver
+	out        chan packetStruct
 
 	nextID  int
 	options peerOptions
@@ -63,15 +66,16 @@ func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
 		}
 	}
 	return &peer{
-		ID:      u,
-		URI:     uri,
-		Exit:    make(chan struct{}, 1),
-		c:       c,
-		ch:      ch,
-		out:     make(chan packetStruct, outChannelSize),
-		nextID:  options.startID,
-		options: options,
-		m:       sync.Mutex{},
+		ID:         u,
+		URI:        uri,
+		RemoteAddr: c.RemoteAddr().String(),
+		Exit:       make(chan struct{}, 1),
+		c:          c,
+		ch:         ch,
+		out:        make(chan packetStruct, outChannelSize),
+		nextID:     options.startID,
+		options:    options,
+		m:          sync.Mutex{},
 	}
 }
 

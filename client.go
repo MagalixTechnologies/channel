@@ -86,10 +86,10 @@ func (c *Client) SetHooks(
 	onConnect *func() error,
 	onDisconnect *func(),
 ) {
-	var wrapperOnConnect *func(uuid.UUID, string) error
+	var wrapperOnConnect *func(uuid.UUID, string, string) error
 	var wrapperOnDisconnect *func(uuid.UUID)
 	if onConnect != nil {
-		tmp := func(_ uuid.UUID, _ string) error {
+		tmp := func(_ uuid.UUID, _ string, _ string) error {
 			return (*onConnect)()
 		}
 		wrapperOnConnect = &tmp

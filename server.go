@@ -72,7 +72,7 @@ func (s *Server) Peers() []uuid.UUID {
 
 // SetHooks sets connection and disconnection hooks
 func (s *Server) SetHooks(
-	onConnect *func(id uuid.UUID, uri string) error,
+	onConnect *func(id uuid.UUID, uri string, remoteAddr string) error,
 	onDisconnect *func(id uuid.UUID),
 ) {
 	s.Channel.SetHooks(onConnect, onDisconnect)

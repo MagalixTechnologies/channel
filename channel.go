@@ -40,7 +40,7 @@ type Channel struct {
 
 	receivers sync.Map
 
-	onConnect    *func(id uuid.UUID, uri string) error
+	onConnect    *func(id uuid.UUID, uri string, remoteAddr string) error
 	onDisconnect *func(id uuid.UUID)
 }
 
@@ -173,7 +173,7 @@ func (ch *Channel) received(packet clientPacket) {
 
 // SetHooks sets connection and disconnection hooks
 func (ch *Channel) SetHooks(
-	onConnect *func(id uuid.UUID, uri string) error,
+	onConnect *func(id uuid.UUID, uri string, remoteAddr string) error,
 	onDisconnect *func(id uuid.UUID),
 ) {
 	ch.onConnect = onConnect
@@ -192,7 +192,7 @@ func (ch *Channel) HandlePeer(peer *peer) {
 	defer ch.peers.Delete(peer.ID)
 	go peer.handle()
 	if ch.onConnect != nil {
-		err := (*ch.onConnect)(peer.ID, peer.URI)
+		err := (*ch.onConnect)(peer.ID, peer.URI, peer.RemoteAddr)
 		// TODO: add before, after connect
 		if err != nil {
 			fmt.Println(err)
