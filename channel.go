@@ -216,7 +216,9 @@ func (ch *Channel) HandlePeer(peer *peer) {
 	}
 	<-peer.Exit
 	if ch.onDisconnect != nil {
-		(*ch.onDisconnect)(peer.ID)
+		go func() {
+			(*ch.onDisconnect)(peer.ID)
+		}()
 	}
 }
 
