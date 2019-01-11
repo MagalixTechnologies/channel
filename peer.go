@@ -27,6 +27,7 @@ type clientPacket struct {
 
 type Receiver interface {
 	received(clientPacket)
+	flush(clientPacket)
 }
 
 type Conn interface {
@@ -49,12 +50,14 @@ type peer struct {
 	Exit       chan struct{}
 	c          Conn
 	ch         Receiver
-	out        chan packetStruct
+
+	sync.RWMutex
+	out chan packetStruct
 
 	nextID  int
 	options peerOptions
 
-	m sync.Mutex
+	idMutex sync.Mutex
 }
 
 func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
@@ -75,19 +78,47 @@ func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
 		out:        make(chan packetStruct, outChannelSize),
 		nextID:     options.startID,
 		options:    options,
-		m:          sync.Mutex{},
+		idMutex:    sync.Mutex{},
 	}
 }
 
 func (p *peer) NextID() int {
-	p.m.Lock()
-	defer p.m.Unlock()
+	p.idMutex.Lock()
+	defer p.idMutex.Unlock()
 	p.nextID += 2
 	return p.nextID
 }
 
+func (p *peer) Send(packet packetStruct) error {
+	p.RLock()
+	if p.out == nil {
+		return ApplyReason(ClientNotConnected, "connection already closed", nil)
+	}
+	p.out <- packet
+	p.RUnlock()
+	return nil
+}
+
 func (p *peer) startedHere(id int) bool {
 	return p.nextID%2 == id%2
+}
+
+func (p *peer) drain() {
+
+	// drain has to be called wht p locked
+	for i := 0; i < len(p.out); i++ {
+		packet := <-p.out
+		if p.startedHere(packet.ID) {
+			p.ch.received(clientPacket{Packet: packetStruct{
+				ID:       packet.ID,
+				Endpoint: packet.Endpoint,
+				Error:    ApplyReason(ClientNotConnected, "connection closed", nil),
+			}, Client: p.ID})
+		}
+	}
+	p.ch.flush(clientPacket{Packet: packetStruct{
+		Error: ApplyReason(ClientNotConnected, "connection closed", nil),
+	}, Client: p.ID})
 }
 
 func (p *peer) handle() {
@@ -99,6 +130,13 @@ func (p *peer) handle() {
 			p.c.SetWriteDeadline(time.Now().Add(p.options.writeTimeout))
 			w, err := p.c.NextWriter(mt)
 			if err != nil {
+				if p.startedHere(packet.ID) {
+					p.ch.received(clientPacket{Packet: packetStruct{
+						ID:       packet.ID,
+						Endpoint: packet.Endpoint,
+						Error:    ApplyReason(ClientNotConnected, "write error", nil),
+					}, Client: p.ID})
+				}
 				p.close()
 				return
 			}
@@ -126,17 +164,20 @@ func (p *peer) handle() {
 		d := gob.NewDecoder(r)
 		err = d.Decode(&packet)
 		if err != nil {
-			p.out <- packetStruct{
+			p.Send(packetStruct{
 				ID:       packet.ID,
 				Endpoint: packet.Endpoint,
 				Error:    ApplyReason(BadRequest, "bad request", err),
-			}
+			})
 		}
 		p.ch.received(clientPacket{Packet: packet, Client: p.ID})
 	}
 }
 
 func (p *peer) close() {
+	p.Lock()
+	defer p.Unlock()
+	p.drain()
 	close(p.out)
 	p.out = nil
 	p.Exit <- struct{}{}

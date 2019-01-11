@@ -111,21 +111,21 @@ func (ch *Channel) Init() {
 					}
 
 					if peer := ch.GetPeer(client); peer != nil {
-						peer.out <- packetStruct{
+						peer.Send(packetStruct{
 							ID:       id,
 							Endpoint: endpoint,
 							Body:     resp,
 							Error:    e,
-						}
+						})
 					}
 				}(req.Client, req.Packet.ID, req.Packet.Endpoint, req.Packet.Body)
 			} else {
 				if peer := ch.GetPeer(req.Client); peer != nil {
-					peer.out <- packetStruct{
+					peer.Send(packetStruct{
 						ID:       req.Packet.ID,
 						Endpoint: req.Packet.Endpoint,
 						Error:    ApplyReason(NotFound, fmt.Sprintf("api not found: %s", req.Packet.Endpoint), nil),
-					}
+					})
 				}
 			}
 		}
@@ -143,13 +143,16 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 			id:     id,
 		}
 		ch.receivers.Store(selector, receiver)
-		peer.out <- packetStruct{
+		err := peer.Send(packetStruct{
 			ID:       id,
 			Endpoint: endpoint,
 			Body:     body,
+		})
+		if err != nil {
+			err = ApplyReason(ClientNotConnected, fmt.Sprintf("client not connected: %s", client), err)
+			return nil, err
 		}
 		var body []byte
-		var err error
 		select {
 		case resp := <-receiver:
 			body, err = resp.Body, resp.Error
@@ -165,6 +168,17 @@ func (ch *Channel) Send(client uuid.UUID, endpoint string, body []byte) ([]byte,
 		return body, err
 	}
 	return nil, errors.New("client not found")
+}
+
+func (ch *Channel) flush(packet clientPacket) {
+	ch.receivers.Range(func(k, v interface{}) bool {
+		selector := k.(packetSelector)
+		if selector.client == packet.Client {
+			receiver := v.(chan packetStruct)
+			receiver <- packet.Packet
+		}
+		return true
+	})
 }
 
 func (ch *Channel) received(packet clientPacket) {
@@ -192,18 +206,18 @@ func (ch *Channel) HandlePeer(peer *peer) {
 	defer ch.peers.Delete(peer.ID)
 	go peer.handle()
 	if ch.onConnect != nil {
-		err := (*ch.onConnect)(peer.ID, peer.URI, peer.RemoteAddr)
-		// TODO: add before, after connect
-		if err != nil {
-			fmt.Println(err)
-		}
+		go func() {
+			err := (*ch.onConnect)(peer.ID, peer.URI, peer.RemoteAddr)
+			// TODO: add before, after connect
+			if err != nil {
+				fmt.Println(err)
+			}
+		}()
 	}
-	defer func() {
-		if ch.onDisconnect != nil {
-			(*ch.onDisconnect)(peer.ID)
-		}
-	}()
 	<-peer.Exit
+	if ch.onDisconnect != nil {
+		(*ch.onDisconnect)(peer.ID)
+	}
 }
 
 func (ch *Channel) GetPeer(id uuid.UUID) *peer {
