@@ -58,6 +58,7 @@ type peer struct {
 	options peerOptions
 
 	idMutex sync.Mutex
+	closed  bool
 }
 
 func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
@@ -175,8 +176,12 @@ func (p *peer) handle() {
 }
 
 func (p *peer) close() {
+	if p.closed {
+		return
+	}
 	p.Lock()
 	defer p.Unlock()
+	p.closed = true
 	p.drain()
 	close(p.out)
 	p.out = nil
