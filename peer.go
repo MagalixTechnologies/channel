@@ -92,11 +92,11 @@ func (p *peer) NextID() int {
 
 func (p *peer) Send(packet packetStruct) error {
 	p.RLock()
+	defer p.RUnlock()
 	if p.out == nil {
 		return ApplyReason(ClientNotConnected, "connection already closed", nil)
 	}
 	p.out <- packet
-	p.RUnlock()
 	return nil
 }
 

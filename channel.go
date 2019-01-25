@@ -121,7 +121,7 @@ func (ch *Channel) Init() {
 				}(req.Client, req.Packet.ID, req.Packet.Endpoint, req.Packet.Body)
 			} else {
 				if peer := ch.GetPeer(req.Client); peer != nil {
-					peer.Send(packetStruct{
+					go peer.Send(packetStruct{
 						ID:       req.Packet.ID,
 						Endpoint: req.Packet.Endpoint,
 						Error:    ApplyReason(NotFound, fmt.Sprintf("api not found: %s", req.Packet.Endpoint), nil),
