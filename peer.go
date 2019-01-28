@@ -51,7 +51,7 @@ type peer struct {
 	c          Conn
 	ch         Receiver
 
-	sync.RWMutex
+	sync.Mutex
 	out chan packetStruct
 
 	nextID  int
@@ -91,10 +91,13 @@ func (p *peer) NextID() int {
 }
 
 func (p *peer) Send(packet packetStruct) error {
-	p.RLock()
-	defer p.RUnlock()
+	p.Lock()
+	defer p.Unlock()
 	if p.out == nil {
 		return ApplyReason(ClientNotConnected, "connection already closed", nil)
+	}
+	if len(p.out) > cap(p.out)-1 {
+		return ApplyReason(LocalError, "out channel is full", nil)
 	}
 	p.out <- packet
 	return nil
@@ -106,7 +109,7 @@ func (p *peer) startedHere(id int) bool {
 
 func (p *peer) drain() {
 
-	// drain has to be called wht p locked
+	// drain has to be called with p locked
 	for i := 0; i < len(p.out); i++ {
 		packet := <-p.out
 		if p.startedHere(packet.ID) {
