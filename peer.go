@@ -180,6 +180,7 @@ func (p *peer) handle() {
 
 func (p *peer) close() {
 	if p.closed {
+		fmt.Println("[WARNING]: closing of a closed peer")
 		return
 	}
 	p.Lock()
