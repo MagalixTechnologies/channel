@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MagalixTechnologies/uuid-go"
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
 )
 
 const (
@@ -62,13 +62,8 @@ type peer struct {
 }
 
 func newPeer(c Conn, ch Receiver, options peerOptions, uri string) *peer {
-	u, err := uuid.NewV4()
-	if err == nil {
-		u, err = uuid.NewV1()
-		if err != nil {
-			u = uuid.Nil
-		}
-	}
+	u := uuid.NewV4()
+
 	return &peer{
 		ID:         u,
 		URI:        uri,

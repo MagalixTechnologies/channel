@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/MagalixTechnologies/uuid-go"
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
 )
 
 var (

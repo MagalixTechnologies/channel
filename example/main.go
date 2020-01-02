@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/MagalixTechnologies/uuid-go"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/satori/go.uuid"
 
 	"github.com/MagalixTechnologies/channel"
 )
@@ -24,7 +24,7 @@ func main() {
 	switch os.Args[1] {
 	case "server":
 		s := channel.NewServer("127.0.0.1:"+os.Args[2], "/", options)
-		onConnect := func(u uuid.UUID, url string) error {
+		onConnect := func(u uuid.UUID, url string, remoteAddr string) error {
 			fmt.Printf("client connected %s to %s\n", u.String(), url)
 			return nil
 		}

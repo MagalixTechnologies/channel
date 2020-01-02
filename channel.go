@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MagalixTechnologies/uuid-go"
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
 )
 
 // ChannelOptions options for the channel
