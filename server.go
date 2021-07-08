@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	upgrader = websocket.Upgrader{}
+	upgrader = websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 )
 
 // Server a protocol server
