@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -88,4 +88,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 	peer := s.Channel.NewPeer(c, r.RequestURI)
 	s.Channel.HandlePeer(peer)
+}
+
+func (s *Server) ClosePeerConnection(client uuid.UUID) {
+	peer := s.Channel.GetPeer(client)
+	peer.Close()
 }
