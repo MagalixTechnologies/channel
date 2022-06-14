@@ -136,7 +136,7 @@ func (p *peer) handle() {
 						Error:    ApplyReason(ClientNotConnected, "write error", nil),
 					}, Client: p.ID})
 				}
-				p.close()
+				p.Close()
 				return
 			}
 			e := gob.NewEncoder(w)
@@ -156,7 +156,7 @@ func (p *peer) handle() {
 	for {
 		_, r, err := p.c.NextReader()
 		if err != nil {
-			p.close()
+			p.Close()
 			return
 		}
 		var packet packetStruct
@@ -173,7 +173,7 @@ func (p *peer) handle() {
 	}
 }
 
-func (p *peer) close() {
+func (p *peer) Close() {
 	if p.closed {
 		fmt.Println("[WARNING]: closing of a closed peer")
 		return
