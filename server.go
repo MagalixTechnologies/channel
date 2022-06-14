@@ -90,7 +90,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	s.Channel.HandlePeer(peer)
 }
 
-func (s *Server) Close(client uuid.UUID) {
+func (s *Server) ClosePeerConnection(client uuid.UUID) {
 	peer := s.Channel.GetPeer(client)
 	peer.Close()
 }
